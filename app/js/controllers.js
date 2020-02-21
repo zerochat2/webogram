@@ -951,11 +951,14 @@ angular.module('myApp.controllers', ['myApp.i18n'])
     function getDialogs (force) {
       var curJump = ++jump
 
-      $timeout.cancel(searchTimeoutPromise)
+      if (searchTimeoutPromise) {
+        $timeout.cancel(searchTimeoutPromise)
+      }
 
       if (searchMessages) {
         searchTimeoutPromise = (force || maxID) ? $q.when() : $timeout(angular.noop, 500)
         return searchTimeoutPromise.then(function () {
+          searchTimeoutPromise = false;
           var searchPeerID = $scope.searchPeer || false
           return AppMessagesManager.getSearch(searchPeerID, $scope.search.query, {_: 'inputMessagesFilterEmpty'}, maxID).then(function (result) {
             if (curJump != jump) {
@@ -4275,6 +4278,24 @@ angular.module('myApp.controllers', ['myApp.i18n'])
         })
       }
     })
+
+    $scope.contentSettings = {notReady: true}
+    var contentSettingsPromise = MtpApiManager.invokeApi('account.getContentSettings', {}).then(function (contentsResult) {
+      $scope.contentSettings = contentsResult
+    })
+
+    $scope.toggleContentSettings = function () {
+      if ($scope.contentSettings.pFlags &&
+          $scope.contentSettings.pFlags.sensitive_enabled) {
+        delete $scope.contentSettings.pFlags.sensitive_enabled
+        MtpApiManager.invokeApi('account.setContentSettings', {flags: 0})
+      } else {
+        return ErrorService.confirm({type: 'CONTENT_SETTINGS_SENSITIVE'}).then(function () {
+          $scope.contentSettings.pFlags.sensitive_enabled = true
+          MtpApiManager.invokeApi('account.setContentSettings', {flags: 1})
+        })
+      }
+    }
 
     $scope.notify = {volume: 0.5}
     $scope.send = {}
